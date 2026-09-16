@@ -1,600 +1,273 @@
-# OS_TASK_1
-# Multithreading Projects
+#OS TASK1
+# Multithreading Task
 
-This repository contains three multithreading projects implemented using Python and JavaScript.
+## Project Title
 
-## Projects
+**Multithreading and Concurrent Matrix Processing**
 
-1. Producer-Consumer Problem
-2. 100×100 Matrix Multiplication Using TensorFlow and Multithreading
-3. Threaded Matrix Laboratory Using HTML, CSS, JavaScript and Web Workers
+## Introduction
 
----
+This task demonstrates the use of **multithreading and concurrent processing** using Python and web technologies.
 
-# 1. Producer-Consumer Problem
+The project consists of three parts:
 
-## Description
+1. Producer-Consumer Problem using Python Threads
+2. 100 × 100 Matrix Multiplication using Python Threads
+3. HTML-based Matrix Multiplication Visualization using Web Workers
 
-The Producer-Consumer program demonstrates communication between a producer thread and a consumer thread using a shared bounded buffer.
-
-The producer generates 10 items and places them into a shared queue. The consumer retrieves and processes the items.
-
-The shared buffer has a maximum capacity of 5 items.
-
-## Concepts Used
-
-* Python threading
-* Producer-Consumer model
-* Shared buffer
-* Queue
-* Thread synchronization
-* Blocking operations
-* Threading Event
-
-## Code
-
-Save as `producer_consumer.py`.
-
-```python
-import threading
-import time
-import random
-import queue
-
-BUFFER_LIMIT = 5
-shared_buffer = queue.Queue(maxsize=BUFFER_LIMIT)
-
-stop_signal = threading.Event()
-
-
-def producer(name, item_count):
-    for i in range(item_count):
-        if stop_signal.is_set():
-            break
-
-        item = f"{name}-item-{i}"
-        wait_time = random.uniform(0.1, 0.5)
-        time.sleep(wait_time)
-
-        shared_buffer.put(item)
-        print(
-            f"[{name}] produced -> {item} "
-            f"(buffer size: {shared_buffer.qsize()})"
-        )
-
-    print(f"[{name}] finished producing.")
-
-
-def consumer(name, item_count):
-    for i in range(item_count):
-        if stop_signal.is_set():
-            break
-
-        item = shared_buffer.get()
-        wait_time = random.uniform(0.2, 0.6)
-        time.sleep(wait_time)
-
-        print(
-            f"[{name}] consumed -> {item} "
-            f"(buffer size: {shared_buffer.qsize()})"
-        )
-
-        shared_buffer.task_done()
-
-    print(f"[{name}] finished consuming.")
-
-
-def main():
-    num_items = 10
-
-    producer_thread = threading.Thread(
-        target=producer,
-        args=("Producer-1", num_items)
-    )
-
-    consumer_thread = threading.Thread(
-        target=consumer,
-        args=("Consumer-1", num_items)
-    )
-
-    producer_thread.start()
-    consumer_thread.start()
-
-    producer_thread.join()
-    consumer_thread.join()
-
-    print("All items produced and consumed. Program complete.")
-
-
-if __name__ == "__main__":
-    main()
-```
-
-## Run
-
-```bash
-python producer_consumer.py
-```
-
-## Expected Output
-
-```text
-[Producer-1] produced -> Producer-1-item-0
-[Consumer-1] consumed -> Producer-1-item-0
-[Producer-1] produced -> Producer-1-item-1
-[Consumer-1] consumed -> Producer-1-item-1
-...
-[Producer-1] finished producing.
-[Consumer-1] finished consuming.
-All items produced and consumed. Program complete.
-```
+The main objective is to understand how multiple threads can execute tasks concurrently, how shared resources are synchronized, and how parallel processing can be visualized.
 
 ---
 
-# 2. 100×100 Matrix Multiplication
+## Task 1: Producer-Consumer Problem
 
-## Description
+### Description
 
-This program performs multiplication of two 100×100 matrices using Python multithreading and TensorFlow.
+The Producer-Consumer problem demonstrates communication and synchronization between two threads using a shared buffer.
 
-A `ThreadPoolExecutor` is used with 32 worker threads.
+A producer generates items and places them into the buffer, while a consumer removes and processes those items.
 
-Each output cell is calculated as a separate task.
+### Working
 
-For a 100×100 matrix:
+* A producer thread generates 10 items.
+* A consumer thread consumes the generated items.
+* A shared buffer is used to temporarily store the items.
+* The buffer has a maximum capacity of 5 items.
+* Python's Queue is used for safe communication between the threads.
+* If the buffer becomes full, the producer waits.
+* If the buffer becomes empty, the consumer waits.
+* Both producer and consumer execute concurrently.
+* Threads are joined after their execution is completed.
 
-```text
-100 × 100 = 10,000 output cells
-```
+### Concepts Demonstrated
 
-Each output cell requires 100 scalar multiplications.
-
-Therefore:
-
-```text
-100 × 100 × 100 = 1,000,000 scalar multiplications
-```
-
-The result is also verified using TensorFlow's `tf.linalg.matmul()`.
-
-## Concepts Used
-
-* Matrix multiplication
 * Multithreading
-* ThreadPoolExecutor
-* TensorFlow
-* NumPy
+* Producer-Consumer synchronization
+* Shared resources
+* Thread communication
+* Queue-based buffering
+* Thread joining
+* Concurrent execution
+
+### Expected Result
+
+The terminal displays the items produced and consumed along with the current buffer size. After all items are processed, a completion message is displayed.
+
+---
+
+# Task 2: 100 × 100 Matrix Multiplication Using Multithreading
+
+## Description
+
+This task performs multiplication of two **100 × 100 matrices** using Python multithreading.
+
+The program creates a separate thread for every individual multiplication contribution.
+
+### Working
+
+Two 100 × 100 matrices are generated with random values between 1 and 10.
+
+For every output element, the corresponding row of the first matrix and column of the second matrix are multiplied and accumulated.
+
+The program uses:
+
+* Python Threading
+* Random
+* Time
+* Matrix operations
+* Locks for synchronization
+
+### Number of Operations
+
+For two 100 × 100 matrices:
+
+**Number of output elements:**
+
+100 × 100 = **10,000**
+
+**Individual multiplication operations:**
+
+100 × 100 × 100 = **1,000,000**
+
+Therefore, the program creates **1,000,000 threads** to perform the individual multiplication operations.
+
+### Synchronization
+
+Since multiple threads update the shared result matrix, locks are used to prevent multiple threads from modifying the same result element at the same time.
+
+This ensures that the final matrix is calculated correctly.
+
+### Result Verification
+
+The program first calculates the matrix multiplication sequentially.
+
+The threaded result is then compared with the sequential result.
+
+If both results are the same, the program confirms that the threaded matrix multiplication is correct.
+
+### Output
+
+The program displays:
+
+* Matrix size
+* Number of worker threads created
+* Execution time
+* Whether the threaded result is correct
+* A sample result from the output matrix
+
+### Concepts Demonstrated
+
+* Python multithreading
+* Concurrent execution
+* Matrix multiplication
 * Thread synchronization
-* Lock
-* Matplotlib animation
+* Locks
+* Shared memory
+* Performance measurement
 * Result verification
 
-## Required Libraries
-
-```bash
-pip install numpy tensorflow matplotlib pillow
-```
-
-## Code
-
-Save as `matrix_threading.py`.
-
-```python
-import time
-import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
-import numpy as np
-import tensorflow as tf
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-
-N = 100
-WORKER_THREADS = 32
-SNAPSHOT_EVERY = 40
-
-tf.random.set_seed(7)
-
-A = tf.constant(
-    tf.random.uniform(
-        (N, N),
-        minval=1,
-        maxval=10,
-        dtype=tf.int32
-    )
-)
-
-B = tf.constant(
-    tf.random.uniform(
-        (N, N),
-        minval=1,
-        maxval=10,
-        dtype=tf.int32
-    )
-)
-
-C = np.zeros((N, N), dtype=np.int64)
-done_mask = np.zeros((N, N), dtype=bool)
-
-write_lock = threading.Lock()
-
-
-def compute_cell(row, col):
-    row_vals = A[row, :]
-    col_vals = B[:, col]
-
-    products = tf.multiply(row_vals, col_vals)
-    total = tf.reduce_sum(products)
-
-    value = int(total.numpy())
-
-    with write_lock:
-        C[row, col] = value
-        done_mask[row, col] = True
-
-
-def multiply_with_threads():
-    frames = []
-    jobs_done = 0
-    total_jobs = N * N
-
-    print(
-        f"Multiplying two {N}x{N} matrices via TensorFlow across "
-        f"{WORKER_THREADS} worker threads..."
-    )
-
-    start_time = time.time()
-
-    with ThreadPoolExecutor(
-        max_workers=WORKER_THREADS
-    ) as pool:
-
-        futures = [
-            pool.submit(compute_cell, r, c)
-            for r in range(N)
-            for c in range(N)
-        ]
-
-        for _ in as_completed(futures):
-            jobs_done += 1
-
-            if (
-                jobs_done % SNAPSHOT_EVERY == 0
-                or jobs_done == total_jobs
-            ):
-                with write_lock:
-                    snapshot = np.where(
-                        done_mask,
-                        C.astype(float),
-                        np.nan
-                    )
-
-                frames.append(snapshot)
-
-    elapsed = time.time() - start_time
-
-    print(
-        f"Done. {total_jobs} cells "
-        f"({total_jobs * N} scalar multiplications) "
-        f"finished in {elapsed:.2f}s "
-        f"using {WORKER_THREADS} threads."
-    )
-
-    return frames, elapsed
-
-
-def render_animation(
-    frames,
-    out_path="tf_matrix_multiply.gif"
-):
-    fig, ax = plt.subplots(figsize=(6, 6))
-
-    ax.set_title(
-        "Threaded 100x100 Matrix Multiplication (TensorFlow)"
-    )
-
-    ax.set_xticks([])
-    ax.set_yticks([])
-
-    vmax = np.nanmax(frames[-1])
-
-    img = ax.imshow(
-        frames[0],
-        cmap="viridis",
-        vmin=0,
-        vmax=vmax
-    )
-
-    def update(i):
-        img.set_data(frames[i])
-
-        ax.set_xlabel(
-            f"cells completed: "
-            f"{min((i + 1) * SNAPSHOT_EVERY, N * N)} "
-            f"/ {N * N}"
-        )
-
-        return [img]
-
-    anim = animation.FuncAnimation(
-        fig,
-        update,
-        frames=len(frames),
-        interval=40,
-        blit=False
-    )
-
-    anim.save(
-        out_path,
-        writer=animation.PillowWriter(fps=25)
-    )
-
-    plt.close(fig)
-
-    print(f"Saved animation to {out_path}")
-
-
-if __name__ == "__main__":
-    frames, elapsed = multiply_with_threads()
-
-    render_animation(frames)
-
-    expected = tf.linalg.matmul(A, B).numpy()
-
-    assert np.array_equal(
-        C,
-        expected
-    ), "Mismatch! Threaded result is wrong."
-
-    print(
-        "Verified: threaded result matches "
-        "tf.linalg.matmul exactly."
-    )
-```
-
-## Run
-
-```bash
-python matrix_threading.py
-```
-
-## Expected Output
-
-```text
-Multiplying two 100x100 matrices via TensorFlow across 32 worker threads...
-Done. 10000 cells (1000000 scalar multiplications) finished in X.XXs using 32 threads.
-Saved animation to tf_matrix_multiply.gif
-Verified: threaded result matches tf.linalg.matmul exactly.
-```
-
-The program generates:
-
-```text
-tf_matrix_multiply.gif
-```
-
 ---
 
-# 3. Threaded Matrix Laboratory
+# Task 3: HTML Matrix Multiplication Visualization
 
 ## Description
 
-Threaded Matrix Laboratory is a browser-based matrix multiplication visualization.
+This task provides a visual representation of matrix multiplication using **HTML, CSS and JavaScript**.
 
-It uses JavaScript Web Workers to perform matrix calculations using multiple background workers.
+JavaScript **Web Workers** are used to perform calculations separately from the main webpage.
 
-The application supports matrix sizes from 2×2 to 100×100.
+### Working
 
-Users can generate new matrices, start the calculation, observe worker contributions, and view the output matrix.
+The webpage displays:
 
-## Concepts Used
+* Input Matrix A
+* Input Matrix B
+* Output Matrix
 
+The user can select a matrix size between 2 and 100.
+
+After starting the process:
+
+1. Random matrices are generated.
+2. Multiple Web Workers are created.
+3. Workers perform matrix multiplication calculations.
+4. Each multiplication contribution is sent back to the main webpage.
+5. The output matrix is updated as calculations are completed.
+6. The webpage displays the current calculation progress.
+7. After all operations are completed, the final output matrix is displayed.
+
+### Main Features
+
+* Interactive matrix size selection
+* Random matrix generation
+* Multiple Web Workers
+* Concurrent processing
+* Real-time progress display
+* Worker contribution display
+* Output matrix visualization
+* Matrix sizes up to 100 × 100
+
+### Technologies Used
+
+* HTML
+* CSS
 * JavaScript
-* HTML5
-* CSS3
 * Web Workers
-* Parallel processing
-* Matrix multiplication
-* Worker communication
-* DOM manipulation
-* Execution time measurement
+* Browser-based concurrent processing
 
-## Code
+---
 
-Save as `index.html`.
+# Project Objectives
 
-```html
-<!DOCTYPE html>
-<html lang="en">
+The main objectives of this task are:
 
-<head>
+* To understand multithreading.
+* To implement concurrent execution.
+* To understand the Producer-Consumer problem.
+* To perform matrix multiplication using threads.
+* To understand thread synchronization.
+* To use locks for protecting shared resources.
+* To understand Web Workers.
+* To visualize concurrent matrix processing.
+* To compare threaded and sequential results.
 
-<meta charset="UTF-8">
+---
 
-<title>Threaded Matrix Laboratory</title>
+# Software Requirements
 
-<style>
+## Python
 
-:root{
-  --bg:#eef1ee;
-  --panel:#f7f8f6;
-  --text:#333;
-  --border:#ccc;
-  --btn:#3a4750;
-  --btn-text:#fff;
-  --muted:#777;
-  --cell:#fff;
-  --accent:#4a7fb5;
-}
+Python is required to run the Producer-Consumer and Matrix Multiplication programs.
 
-@media (prefers-color-scheme: dark){
+## Web Browser
 
-  :root:not([data-theme="light"]){
+A modern web browser such as Chrome, Edge or Firefox is required to run the HTML visualization.
 
-    --bg:#1c1e1c;
-    --panel:#26282a;
-    --text:#eee;
-    --border:#444;
-    --btn:#7fb2c9;
-    --btn-text:#0d0f10;
-    --muted:#aaa;
-    --cell:#333a3f;
-    --accent:#7fb2c9;
+---
 
-  }
+# Project Structure
 
-}
+The project contains:
 
-:root[data-theme="dark"]{
+* Producer-Consumer Python program
+* Threaded Matrix Multiplication Python program
+* HTML Matrix Visualization
+* README documentation
 
-  --bg:#1c1e1c;
-  --panel:#26282a;
-  --text:#eee;
-  --border:#444;
-  --btn:#7fb2c9;
-  --btn-text:#0d0f10;
-  --muted:#aaa;
-  --cell:#333a3f;
-  --accent:#7fb2c9;
+---
 
-}
+# Execution
 
-body{
+## Producer-Consumer
 
-  background:var(--bg);
-  color:var(--text);
-  font-family:'Segoe UI', sans-serif;
-  text-align:center;
-  padding:30px 16px;
+Run the Producer-Consumer Python program.
 
-}
+The terminal displays the production and consumption of items and the buffer status.
 
-h1{
-  margin-bottom:4px;
-  font-size:1.8rem;
-}
+## Matrix Multiplication
 
-.sub{
-  color:var(--muted);
-  font-size:0.95rem;
-  margin-bottom:24px;
-}
+Run the Python matrix multiplication program.
 
-.controls{
+The program generates two 100 × 100 matrices, performs threaded multiplication and verifies the result.
 
-  display:flex;
-  gap:10px;
-  justify-content:center;
-  flex-wrap:wrap;
-  align-items:center;
-  margin-bottom:24px;
+## HTML Visualization
 
-}
+Open the HTML file in a web browser.
 
-.controls input[type=number]{
+Select the required matrix size and click **Start** to view the matrix multiplication process.
 
-  width:70px;
-  padding:6px;
-  border-radius:8px;
-  border:1px solid var(--border);
-  background:var(--panel);
-  color:var(--text);
+---
 
-}
+# Applications
 
-button{
+Multithreading and concurrent processing are useful in:
 
-  padding:8px 18px;
-  border:none;
-  border-radius:20px;
-  background:var(--btn);
-  color:var(--btn-text);
-  cursor:pointer;
-  font-size:0.95rem;
+* Data processing
+* Scientific computing
+* Image processing
+* Machine Learning
+* Web applications
+* Server applications
+* Real-time systems
+* Large-scale computations
 
-}
+---
 
-button:disabled{
+# Advantages
 
-  opacity:0.5;
-  cursor:default;
+* Allows multiple tasks to execute concurrently.
+* Improves utilization of system resources.
+* Demonstrates synchronization of shared resources.
+* Helps understand parallel processing.
+* Provides practical experience with threads.
+* Web Workers allow calculations to run separately from the main webpage.
 
-}
+---
 
-.stage{
+# Conclusion
 
-  display:flex;
-  justify-content:center;
-  gap:16px;
-  flex-wrap:wrap;
-  align-items:center;
+This task demonstrates important concepts of **multithreading, synchronization and concurrent processing**.
 
-}
+The Producer-Consumer program demonstrates communication between threads using a shared queue. The matrix multiplication program demonstrates how individual multiplication operations can be handled using separate threads and synchronized using locks. The HTML application provides a visual demonstration of matrix processing using Web Workers.
 
-.panel{
-
-  background:var(--panel);
-  border-radius:14px;
-  box-shadow:0 2px 10px rgba(0,0,0,0.12);
-  padding:18px;
-
-}
-
-.panel h3{
-
-  margin:0 0 12px 0;
-  font-size:1.05rem;
-  letter-spacing:0.02em;
-
-}
-
-.grid{
-
-  display:grid;
-  gap:5px;
-  justify-content:center;
-
-}
-
-.cell{
-
-  background:var(--cell);
-  border:1px solid var(--border);
-  border-radius:6px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:0.85rem;
-  font-variant-numeric:tabular-nums;
-  transition:background 0.25s ease, transform 0.15s ease;
-
-}
-
-.cell.pop{
-  transform:scale(1.12);
-}
-
-.op{
-
-  font-size:1.8rem;
-  color:var(--muted);
-  padding:0 4px;
-
-}
-
-#statusMain{
-
-  margin-top:26px;
-  font-size:1rem;
-
-}
-
-#statusWorker{
-
-  margin-top:8px;
-  font-family:'Consolas','Courier New',monospace;
-  font-size:0.9rem;
-  color:var(--accent);
-  background:var(--panel);
-  display:inline-block;
-```
+Overall, the task provides practical understanding of how concurrent execution can be implemented using Python threads and browser-based Web Workers.
