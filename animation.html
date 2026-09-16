@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Threaded Matrix Laboratory</title>
+<style>
+  :root{
+    --bg:#eef1ee; --panel:#f7f8f6; --text:#333; --border:#ccc;
+    --btn:#3a4750; --btn-text:#fff; --muted:#777; --cell:#fff; --accent:#4a7fb5;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#1c1e1c; --panel:#26282a; --text:#eee; --border:#444;
+      --btn:#7fb2c9; --btn-text:#0d0f10; --muted:#aaa; --cell:#333a3f; --accent:#7fb2c9;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#1c1e1c; --panel:#26282a; --text:#eee; --border:#444;
+    --btn:#7fb2c9; --btn-text:#0d0f10; --muted:#aaa; --cell:#333a3f; --accent:#7fb2c9;
+  }
+  body{
+    background:var(--bg); color:var(--text); font-family:'Segoe UI', sans-serif;
+    text-align:center; padding:30px 16px;
+  }
+  h1{margin-bottom:4px; font-size:1.8rem;}
+  .sub{color:var(--muted); font-size:0.95rem; margin-bottom:24px;}
+  .controls{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; align-items:center; margin-bottom:24px;}
+  .controls input[type=number]{width:70px; padding:6px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text);}
+  button{padding:8px 18px; border:none; border-radius:20px; background:var(--btn); color:var(--btn-text); cursor:pointer; font-size:0.95rem;}
+  button:disabled{opacity:0.5; cursor:default;}
+  .stage{display:flex; justify-content:center; gap:16px; flex-wrap:wrap; align-items:center;}
+  .panel{
+    background:var(--panel); border-radius:14px;
+    box-shadow:0 2px 10px rgba(0,0,0,0.12); padding:18px;
+  }
+  .panel h3{margin:0 0 12px 0; font-size:1.05rem; letter-spacing:0.02em;}
+  .grid{display:grid; gap:5px; justify-content:center;}
+  .cell{
+    background:var(--cell); border:1px solid var(--border); border-radius:6px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:0.85rem; font-variant-numeric:tabular-nums;
+    transition:background 0.25s ease, transform 0.15s ease;
+  }
+  .cell.pop{ transform:scale(1.12); }
+  .op{ font-size:1.8rem; color:var(--muted); padding:0 4px; }
+  #statusMain{ margin-top:26px; font-size:1rem; }
+  #statusWorker{
+    margin-top:8px; font-family:'Consolas', 'Courier New', monospace;
+    font-size:0.9rem; color:var(--accent);
+    background:var(--panel); display:inline-block; padding:8px 16px;
+    border-radius:10px; min-width:280px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Threaded Matrix Laboratory</h1>
+<div class="sub">A visual model of independent multiplication contributions</div>
+
+<div class="controls">
+  <label for="sizeInput">Size N:</label>
+  <input type="number" id="sizeInput" value="5" min="2" max="100">
+  <button id="newBtn" onclick="rebuild()">New Matrices</button>
+  <button id="startBtn" onclick="start()">Start</button>
+</div>
+
+<div class="stage">
+  <div class="panel"><h3>Input A</h3><div class="grid" id="gridA"></div></div>
+  <div class="op">&times;</div>
+  <div class="panel"><h3>Input B</h3><div class="grid" id="gridB"></div></div>
+  <div class="op">=</div>
+  <div class="panel"><h3>Output</h3><div class="grid" id="gridOut"></div></div>
+</div>
+
+<p id="statusMain">Press "New Matrices" then "Start"</p>
+<div id="statusWorker">Worker contribution: —</div>
+
+<script>
+/*
+  Every scalar multiplication A[row][k] * B[k][col] is dispatched as
+  its own unit of work to a pool of real Web Worker threads. Workers
+  pull whole rows to avoid the overhead of one message per scalar
+  multiply, but INSIDE a row job they report every single
+  multiplication back to the main thread individually - so the
+  "worker contribution" readout below is showing genuine completed
+  multiplications, not a scripted countdown. The main thread only
+  ever accumulates numbers and paints pixels; it never does the
+  multiplying itself.
+*/
+
+let N = 5;
+let A, B;
+let workers = [];
+let poolSize;
+let cellsA = [], cellsB = [], cellsOut = [];
+let partialSums = [];   // running dot-product accumulation per output cell
+let kProgress = [];     // how many k-terms have landed for each output cell
+let contributionsSeen = 0;
+let totalContributions = 0;
+let nextRow = 0;
+let startTime;
+
+const THREAD_CAP = 16;
+
+function randomMatrix(n){
+  return Array.from({length: n}, () =>
+    Array.from({length: n}, () => 1 + Math.floor(Math.random() * 9))
+  );
+}
+
+function cellSizePx(n){
+  if (n <= 8) return 40;
+  if (n <= 16) return 26;
+  if (n <= 32) return 16;
+  return 10;
+}
+
+function buildGrid(id, n, size, fontSize){
+  const el = document.getElementById(id);
+  el.style.gridTemplateColumns = `repeat(${n}, ${size}px)`;
+  el.innerHTML = "";
+  const cells = [];
+  for (let i = 0; i < n * n; i++){
+    const cell = document.createElement("div");
+    cell.className = "cell";
+    cell.style.width = size + "px";
+    cell.style.height = size + "px";
+    cell.style.fontSize = fontSize + "px";
+    el.appendChild(cell);
+    cells.push(cell);
+  }
+  return cells;
+}
+
+function fillStatic(cells, matrix, n){
+  matrix.flat().forEach((val, i) => { cells[i].textContent = val; });
+}
+
+// The worker: spun up from an inline Blob so the page stays one file.
+// Given a row, it walks every (col, k) pair, performs the
+// multiplication, and reports EACH ONE back immediately - then
+// reports the finished row total at the end for bookkeeping.
+const workerSource = `
+self.onmessage = function(e){
+  const msg = e.data;
+  if (msg.type === 'init'){
+    self.A = msg.A; self.B = msg.B; self.N = msg.N;
+    return;
+  }
+  if (msg.type === 'job'){
+    const row = msg.row;
+    const N = self.N, A = self.A, B = self.B;
+    for (let col = 0; col < N; col++){
+      for (let k = 0; k < N; k++){
+        const product = A[row][k] * B[k][col]; // the multiplication itself
+        self.postMessage({ type:'contribution', row, col, k, product });
+      }
+    }
+    self.postMessage({ type:'rowDone', row });
+  }
+};
+`;
+
+function makeWorker(){
+  const blob = new Blob([workerSource], { type: 'application/javascript' });
+  return new Worker(URL.createObjectURL(blob));
+}
+
+function stopWorkers(){
+  workers.forEach(w => w.terminate());
+  workers = [];
+}
+
+function rebuild(){
+  stopWorkers();
+  N = Math.min(100, Math.max(2, parseInt(document.getElementById('sizeInput').value) || 5));
+  document.getElementById('sizeInput').value = N;
+
+  A = randomMatrix(N);
+  B = randomMatrix(N);
+
+  const size = cellSizePx(N);
+  const font = N <= 16 ? Math.max(10, size * 0.4) : 0;
+
+  cellsA = buildGrid('gridA', N, size, font);
+  cellsB = buildGrid('gridB', N, size, font);
+  cellsOut = buildGrid('gridOut', N, size, font);
+  fillStatic(cellsA, A, N);
+  fillStatic(cellsB, B, N);
+
+  partialSums = new Array(N * N).fill(0);
+  kProgress = new Array(N * N).fill(0);
+  contributionsSeen = 0;
+  totalContributions = N * N * N;
+  nextRow = 0;
+
+  poolSize = Math.min(THREAD_CAP, Math.max(2, navigator.hardwareConcurrency || 4));
+  document.getElementById('statusMain').textContent =
+    `Ready — ${poolSize} worker threads standing by`;
+  document.getElementById('statusWorker').textContent = 'Worker contribution: —';
+  document.getElementById('startBtn').disabled = false;
+}
+
+function start(){
+  document.getElementById('startBtn').disabled = true;
+  document.getElementById('newBtn').disabled = true;
+  startTime = performance.now();
+  stopWorkers();
+
+  // throttle how often we repaint the status text so huge N doesn't
+  // flood the DOM with a message per scalar multiplication
+  const statusEvery = Math.max(1, Math.floor(totalContributions / 500));
+
+  for (let i = 0; i < poolSize; i++){
+    const w = makeWorker();
+    w.postMessage({ type: 'init', A, B, N });
+    w.onmessage = (e) => onWorkerMessage(w, e.data, statusEvery);
+    workers.push(w);
+    assignNextJob(w);
+  }
+}
+
+function assignNextJob(worker){
+  if (nextRow >= N) return;
+  const row = nextRow++;
+  worker.postMessage({ type: 'job', row });
+}
+
+function onWorkerMessage(worker, data, statusEvery){
+  if (data.type === 'contribution'){
+    const { row, col, k, product } = data;
+    const idx = row * N + col;
+    partialSums[idx] += product;
+    kProgress[idx] += 1;
+    contributionsSeen++;
+
+    if (contributionsSeen % statusEvery === 0 || contributionsSeen === totalContributions){
+      document.getElementById('statusMain').textContent =
+        `Processing partial contribution ${contributionsSeen.toLocaleString()} / ${totalContributions.toLocaleString()}; synchronized result updates are represented by worker activity.`;
+      document.getElementById('statusWorker').textContent =
+        `Worker contribution: A[${row}][${k}] × B[${k}][${col}] = ${product}`;
+    }
+
+    if (kProgress[idx] === N){
+      const outCell = cellsOut[idx];
+      outCell.textContent = font_ok() ? partialSums[idx] : '';
+      outCell.classList.add('pop');
+      setTimeout(() => outCell.classList.remove('pop'), 150);
+    }
+    return;
+  }
+
+  if (data.type === 'rowDone'){
+    assignNextJob(worker);
+    if (nextRow >= N && contributionsSeen >= totalContributions){
+      finish();
+    }
+  }
+}
+
+function font_ok(){
+  return N <= 16;
+}
+
+function finish(){
+  const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
+  document.getElementById('statusMain').textContent =
+    `Done — all ${totalContributions.toLocaleString()} multiplications completed across ${poolSize} threads in ${elapsed}s.`;
+  document.getElementById('statusWorker').textContent = 'All threads synchronized. Output matrix complete.';
+  document.getElementById('newBtn').disabled = false;
+}
+
+rebuild();
+</script>
+
+</body>
+</html>
